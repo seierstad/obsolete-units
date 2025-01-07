@@ -1,0 +1,117 @@
+#!/usr/bin/env node
+
+/*
+ Obsolete Units © 2025 by Erik E. Seierstad is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International. To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/4.0/
+*/
+
+const INCH = 25.4;
+
+const mmToInchFractions = (mm, maxFraction = 128, minFraction = maxFraction) => {
+	
+    const results = [];
+
+    const maxPrecision = Math.log2(maxFraction) + 1;
+    const minPrecision = Math.log2(minFraction) + 1;
+
+    for (let maxI = minPrecision; maxI <= maxPrecision; maxI += 1) {
+    	const numerators = [];
+
+    	let remainder = mm;
+
+
+    	let divisor;
+    	let i = 0;
+    	while (remainder > 0 && i < maxI) {
+    		divisor = INCH / Math.pow(2, i);
+    		const result = Math.trunc(remainder / divisor);
+    		remainder -= result * divisor;
+    		numerators.push(result);
+    		i += 1;
+    	}
+
+        const maxIndex = numerators.length - 1;
+    	if (remainder !== 0 && Math.abs(remainder) > Math.abs(remainder - divisor)) {
+    		numerators[maxIndex] += 1;
+    		remainder -= divisor;
+    	}
+
+        for (let i = 0; i < numerators.length; i += 1) {
+            const currentIndex = maxIndex - i;
+            if (numerators[currentIndex] > 1 && currentIndex > 0) {
+                numerators[currentIndex - 1] += Math.trunc(numerators[currentIndex] / 2);
+                numerators[currentIndex] = numerators[currentIndex] % 2;
+            }
+        }
+
+        const reducedNumerators = Object.entries(numerators).filter(([i, n]) => n > 0).map(([i, n]) => ([parseInt(i, 10), n]));
+
+        if (reducedNumerators.length === 0) {
+            results.push(`${mm} mm = 0 inches`);
+        } else {
+
+            const remainderString = (remainder !== 0) ? `${remainder < 0 ? "-" : "+"} ${Math.abs(remainder)} mm` : "";
+
+
+            if (reducedNumerators.length === 1) {
+                results.push(` = ${reducedNumerators.map(([i, n]) => n === 0 ? "" : i === 0 ? n : `${n}/${2 ** i}`).join(" + ")} inches ${remainderString}`);
+            } else {
+
+                const maxPow = reducedNumerators[reducedNumerators.length - 1][0];
+                const isMoreThanOne = reducedNumerators[0][0] === 0;
+
+                let mixedNumbersString = "";
+                if (isMoreThanOne) {
+                    const fractionsNormalized = reducedNumerators.slice(1).reduce((acc, [pow, num]) => acc + num * (2 ** (maxPow - pow)), 0);
+                    mixedNumbersString = (` (${reducedNumerators[0][1]} and ${fractionsNormalized}/${2 ** maxPow})`);
+                }
+
+                const normalized = reducedNumerators.reduce((acc, [pow, num]) => acc + num * (2 ** (maxPow - pow)), 0);
+                results.push(` = ${normalized}/${2 ** maxPow}${isMoreThanOne ? mixedNumbersString : ""} inches ${remainderString}`);
+            }
+        }
+    }
+
+    console.log(`${mm} mm`);
+    results.filter((msg, i, msgs) => i === 0 || msg !== msgs[i - 1]).forEach((msg)=> console.log(msg));
+
+
+};
+
+const showHelp = () => {
+    console.error(`Usage example: inches mm [precision] [minimum precision]`);
+};
+
+if (process.argv.length < 3) {
+    showHelp();
+    return 1;
+}
+
+const mm = parseFloat(process.argv[2]);
+const maxPrecision = process.argv.length > 3 && parseInt(process.argv[3], 10);
+const minPrecision = process.argv.length > 4 && parseInt(process.argv[4], 10);
+
+if (isNaN(mm) || !isFinite(mm)) {
+    showHelp();
+    return 1;
+}
+
+switch (process.argv.length) {
+    case 3:
+        mmToInchFractions(mm);
+        return 0;
+    case 4:
+        if (isNaN(maxPrecision) || !isFinite(maxPrecision)) {
+            showHelp();
+            return 1;
+        }
+        mmToInchFractions(mm, maxPrecision);
+        return 0;
+    case 5: {
+        if (isNaN(maxPrecision) || !isFinite(maxPrecision) || isNaN(minPrecision) || !isFinite(minPrecision)) {
+            showHelp();
+            return 1;
+        }
+        mmToInchFractions(mm, maxPrecision, minPrecision);
+        return 0;
+    }
+}
